@@ -564,8 +564,8 @@ function _startFbListener() {
     if (!d || !d.products) {
       // Firebase trống → nếu có data local thì tự đẩy lên
       if (products && products.length > 0) {
-        showToast('☁️ Đang đồng bộ dữ liệu lên Firebase...');
-        setTimeout(_fbPushMeta, 800);
+        showToast('☁️ Đang đồng bộ dữ liệu & ảnh lên Firebase...');
+        setTimeout(function() { _fbPushMeta(); _fbPushAllCachedImages(); }, 800);
       }
       return;
     }
@@ -577,6 +577,8 @@ function _startFbListener() {
     if (d.logo) { logoDataURL = d.logo; showLogoPreview(d.logo); }
     if (d.fields) restoreFields(d.fields);
     renderProductList(); renderCatalog();
+    // Auto-pull ảnh từ Firebase (chỉ lần đầu)
+    if (!window._fbImgPulled) { window._fbImgPulled = true; setTimeout(pullTeamImages, 1500); }
   });
 }
 
@@ -598,6 +600,25 @@ function _fbPushImage(name, dataURL) {
   _fbImgTimers[key] = setTimeout(function() {
     _db.ref(FB_NS + '/images/' + key).set({ name, dataURL, ts: Date.now() });
   }, 2500);
+}
+
+function _fbPushAllCachedImages() {
+  if (!_db || !_fbReady) return;
+  const cache = loadImageCache();
+  const keys = Object.keys(cache);
+  if (!keys.length) return;
+  let i = 0;
+  function pushNext() {
+    if (i >= keys.length) { showToast('✅ Đã đồng bộ ' + keys.length + ' ảnh lên Firebase!'); return; }
+    const key = keys[i++];
+    const entry = cache[key];
+    if (entry && entry.dataURL) {
+      _db.ref(FB_NS + '/images/' + key).set({ name: entry.name || key, dataURL: entry.dataURL, ts: Date.now() })
+        .then(function() { setTimeout(pushNext, 200); })
+        .catch(function() { setTimeout(pushNext, 200); });
+    } else { setTimeout(pushNext, 50); }
+  }
+  pushNext();
 }
 
 function pullTeamImages() {
