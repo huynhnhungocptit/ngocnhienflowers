@@ -560,7 +560,15 @@ function _startFbListener() {
   // Sync products + settings realtime
   _db.ref(FB_NS + '/meta').on('value', function(snap) {
     if (_fbWriting) return;
-    const d = snap.val(); if (!d || !d.products) return;
+    const d = snap.val();
+    if (!d || !d.products) {
+      // Firebase trống → nếu có data local thì tự đẩy lên
+      if (products && products.length > 0) {
+        showToast('☁️ Đang đồng bộ dữ liệu lên Firebase...');
+        setTimeout(_fbPushMeta, 800);
+      }
+      return;
+    }
     products = d.products.map(function(p) {
       p.img = null; p.imgFromCache = false;
       if (p.name) { const c = getCachedImage(p.name); if (c) { p.img = c; p.imgFromCache = true; } }
