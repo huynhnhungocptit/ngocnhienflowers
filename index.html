@@ -630,12 +630,19 @@ window.onload = () => {
   renderCacheList();
   setTimeout(applyFont, 800);
   initCropEvents();
-  // Auto-reconnect Firebase if previously configured
-  const savedCfg = localStorage.getItem('fb_config');
-  if (savedCfg) {
-    document.getElementById('fb-config-input').value = savedCfg;
-    setTimeout(connectFirebase, 500);
-  }
+  // Auto-connect Firebase (config mặc định cho team Ngọc Nhiên)
+  const DEFAULT_FB_CONFIG = JSON.stringify({
+    apiKey: "AIzaSyCMunGFaZoNWcbA3DZQ4imWSJk1kEwMW6A",
+    authDomain: "catalog-ngocnhien.firebaseapp.com",
+    databaseURL: "https://catalog-ngocnhien-default-rtdb.firebaseio.com",
+    projectId: "catalog-ngocnhien",
+    storageBucket: "catalog-ngocnhien.firebasestorage.app",
+    messagingSenderId: "460291563561",
+    appId: "1:460291563561:web:66da94d66ba3daa702bc38"
+  });
+  const savedCfg = localStorage.getItem('fb_config') || DEFAULT_FB_CONFIG;
+  document.getElementById('fb-config-input').value = savedCfg;
+  setTimeout(connectFirebase, 500);
 };
 
 function autoSave() {
