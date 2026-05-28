@@ -1449,8 +1449,13 @@ function confirmImport() {
     });
   });
   if (!imported.length) { alert('Không tìm thấy dòng nào có tên sản phẩm!'); return; }
-  const action = products.length ? confirm('Nhập ' + imported.length + ' sản phẩm.\n\nOK = Thay toàn bộ\nCancel = Thêm vào cuối') : true;
-  products = action ? imported : products.concat(imported);
+  // Tự động xoá tên trùng (giữ dòng cuối cùng = giá mới nhất)
+  const seen = new Map();
+  imported.forEach(function(p) { seen.set(normalizeName(p.name), p); });
+  const deduped = Array.from(seen.values());
+  const dupCount = imported.length - deduped.length;
+  const action = products.length ? confirm('Nhập ' + deduped.length + ' sản phẩm' + (dupCount ? ' (đã xoá ' + dupCount + ' tên trùng)' : '') + '.\n\nOK = Thay toàn bộ\nCancel = Thêm vào cuối') : true;
+  products = action ? deduped : products.concat(deduped);
 
   // Auto-fill from image cache
   let autoFilled = 0;
