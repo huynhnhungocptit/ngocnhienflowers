@@ -113,6 +113,13 @@ textarea { resize: vertical; min-height: 52px; }
 .cache-item .cache-del { background: #ff6b6b; color: white; border: none; border-radius: 4px; padding: 2px 7px; cursor: pointer; font-size: 11px; flex-shrink: 0; }
 #cache-list { max-height: 260px; overflow-y: auto; border: 1px solid #e8d0da; border-radius: 6px; margin-top: 8px; }
 
+/* ── PRODUCT SEARCH ── */
+#prod-search-wrap { position:relative; margin-bottom:8px; }
+#prod-search { width:100%; padding:8px 32px 8px 10px; border:1.5px solid #c6dfd7; border-radius:8px; font-size:13px; outline:none; background:#f9fffe; }
+#prod-search:focus { border-color:#1e5c46; box-shadow:0 0 0 2px rgba(30,92,70,.12); }
+#prod-search-clear { position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:none; font-size:16px; color:#aaa; cursor:pointer; padding:0 2px; line-height:1; }
+#prod-search-clear:hover { color:#b92d50; }
+#prod-filtered-count { font-size:11px; font-weight:400; color:#888; margin-left:4px; }
 /* ── FIREBASE ── */
 #fb-section textarea { width:100%; box-sizing:border-box; padding:8px; font-size:11px; font-family:monospace; border:1px solid #d0e8dc; border-radius:6px; resize:vertical; color:#333; background:#f9fffe; }
 #fb-status-bar { display:flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:#555; padding:6px 0; }
@@ -308,7 +315,11 @@ input[type=file] { display: none; }
         <div id="excel-status" style="display:none"></div>
       </div>
       <div class="panel-section">
-        <div class="section-title">Danh sách sản phẩm (<span id="prod-count">0</span>)</div>
+        <div class="section-title">Danh sách sản phẩm (<span id="prod-count">0</span>) <span id="prod-filtered-count"></span></div>
+        <div id="prod-search-wrap">
+          <input type="text" id="prod-search" placeholder="🔍 Tìm tên hoa, xuất xứ, ghi chú..." oninput="renderProductList()" autocomplete="off">
+          <button id="prod-search-clear" onclick="document.getElementById('prod-search').value='';renderProductList()" title="Xoá">×</button>
+        </div>
         <div class="drag-hint">⠿ Kéo tay cầm bên trái để sắp xếp thứ tự</div>
         <div id="products-list"></div>
         <button id="btn-add-product" onclick="addProduct()">+ Thêm sản phẩm</button>
@@ -806,8 +817,22 @@ function showLogoPreview(src) {
 function renderProductList() {
   const container = document.getElementById('products-list');
   document.getElementById('prod-count').textContent = products.length;
+  // Search filter
+  const q = ((document.getElementById('prod-search')||{}).value||'').trim().toLowerCase();
+  const filteredLabel = document.getElementById('prod-filtered-count');
+  const clearBtn = document.getElementById('prod-search-clear');
+  let visibleCount = 0;
   container.innerHTML = '';
   products.forEach(function(p, i) {
+    // Check search match
+    if (q) {
+      const hay = [(p.name||''), (p.origin||''), (p.notes||''), (p.price||''), (p.pack||'')].join(' ').toLowerCase();
+      if (!hay.includes(q)) {
+        if (clearBtn) clearBtn.style.display = 'block';
+        return; // skip this product
+      }
+    }
+    visibleCount++;
     const card = document.createElement('div');
     card.className = 'product-card';
     card.setAttribute('draggable', 'true');
@@ -849,6 +874,16 @@ function renderProductList() {
     card.addEventListener('dragend',   onDragEnd);
     container.appendChild(card);
   });
+  // Update filter label
+  if (filteredLabel) {
+    if (q) {
+      filteredLabel.textContent = '— tìm thấy ' + visibleCount;
+      if (visibleCount === 0) container.innerHTML = '<div style="text-align:center;padding:20px;color:#aaa;font-size:13px">Không tìm thấy sản phẩm nào 🔍</div>';
+    } else {
+      filteredLabel.textContent = '';
+      if (clearBtn) clearBtn.style.display = 'none';
+    }
+  }
 }
 
 // ── DRAG & DROP ──
