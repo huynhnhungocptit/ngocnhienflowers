@@ -543,7 +543,7 @@ function connectFirebase() {
           if (snap.val()) {
             setFbStatus('dot','🟢'); setFbStatus('text','Đã kết nối — đồng bộ realtime');
             document.getElementById('fb-sync-info').style.display = 'block';
-            if (!_fbReady) { _fbReady = true; localStorage.setItem('fb_config', JSON.stringify(cfg)); _startFbListener(); }
+            if (!_fbReady) { _fbReady = true; localStorage.setItem('fb_config', JSON.stringify(cfg)); _startFbListener(); setTimeout(_fbPushAllCachedImages, 3000); }
           } else {
             setFbStatus('dot','🟡'); setFbStatus('text','Mất kết nối — đang thử lại...');
           }
