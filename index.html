@@ -640,7 +640,10 @@ function pullTeamImages() {
       const img = imgs[k];
       if (img && img.dataURL) { cache[k] = img; n++; }
     });
-    try { localStorage.setItem(IMG_CACHE_KEY, JSON.stringify(cache)); } catch(e) { showToast('⚠️ Bộ nhớ đầy — xoá bớt ảnh cũ!'); return; }
+    try { localStorage.setItem(IMG_CACHE_KEY, JSON.stringify(cache)); } catch(e) {
+      showToast('⚠️ Bộ nhớ đầy! Vào tab Cài đặt → Bộ nhớ ảnh → xuất bộ nhớ ra file JSON để backup, rồi xoá bớt.');
+      return;
+    }
     updateCacheCountBadge(); renderCacheList();
     products.forEach(function(p, i) {
       if (!p.img && p.name) { const c = getCachedImage(p.name); if (c) { products[i].img = c; products[i].imgFromCache = true; } }
@@ -845,7 +848,7 @@ function uploadLogo(input) {
   const file = input.files[0]; if (!file) return;
   const reader = new FileReader();
   reader.onload = function(e) {
-    compressImage(e.target.result, 400, 0.85, function(dataURL) {
+    compressImage(e.target.result, 200, 0.70, function(dataURL) {
       logoDataURL = dataURL; showLogoPreview(dataURL); renderCatalog(); autoSave();
     });
   };
@@ -1180,7 +1183,7 @@ function confirmCrop() {
   const out = document.createElement('canvas');
   out.width = Math.round(sw); out.height = Math.round(sh);
   out.getContext('2d').drawImage(_cropImg, sx, sy, sw, sh, 0, 0, out.width, out.height);
-  compressImage(out.toDataURL('image/jpeg', 0.85), 220, 0.65, function(dataURL) {
+  compressImage(out.toDataURL('image/jpeg', 0.75), 150, 0.45, function(dataURL) {
     products[_cropTarget].img = dataURL;
     products[_cropTarget].imgFromCache = false;
     const name = products[_cropTarget].name;
