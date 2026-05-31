@@ -666,6 +666,7 @@ window.onload = () => {
   if (!products.length) products = JSON.parse(JSON.stringify(DEFAULT_PRODUCTS));
   renderProductList();
   renderCatalog();
+  _loadCacheFromStorage(); // load ảnh cache vào RAM
   updateCacheCountBadge();
   renderCacheList();
   setTimeout(applyFont, 800);
@@ -694,67 +695,76 @@ function autoSave() {
 }
 
 // ── IMAGE MEMORY CACHE ──
-const IMG_CACHE_KEY = 'ngocnhien_img_cache_v1';
+// ── IMAGE CACHE ──
+// Dùng RAM + localStorage, khi đầy thì chỉ lưu RAM (ảnh mất khi reload nhưng không crash)
+var _memCache = {};
+var IMG_CACHE_KEY = 'ngocnhien_img_cache_v3';
+
+function _loadCacheFromStorage() {
+  try {
+    var raw = localStorage.getItem(IMG_CACHE_KEY);
+    if (raw) _memCache = JSON.parse(raw);
+  } catch(e) { _memCache = {}; }
+}
+
+function _saveCacheToStorage() {
+  try { localStorage.setItem(IMG_CACHE_KEY, JSON.stringify(_memCache)); }
+  catch(e) { /* bộ nhớ đầy — ảnh vẫn còn trong RAM, chỉ không persist qua reload */ }
+}
 
 function normalizeName(name) {
+  if (!name) return '';
   return name
-    .replace(/[一-鿿㐀-䶿豈-﫿]+/g, '')
+    .replace(/[一-鿿㐀-䶿]+/g, '')
     .replace(/\(.*?\)/g, '')
-    .replace(/\bsize\s*[a-zA-Z0-9]+\b/gi, '')
-    .replace(/\b(HF|ĐL|TQ|DL|VIP)\b/gi, '')
+    .replace(/size\s*[a-zA-Z0-9]+/gi, '')
+    .replace(/(HF|DL|TQ|VIP)\s/gi, '')
     .replace(/[-–—_\/\\]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
     .toLowerCase();
 }
 
-function getImageCache() {
-  try { return JSON.parse(localStorage.getItem(IMG_CACHE_KEY) || '{}'); }
-  catch { return {}; }
-}
-function setImageCache(cache) {
-  try { localStorage.setItem(IMG_CACHE_KEY, JSON.stringify(cache)); }
-  catch(e) { showToast('⚠️ Bộ nhớ cache đầy — xóa bớt ảnh cũ trong tab Cài đặt!'); }
-}
+function getImageCache() { return _memCache; }
+function setImageCache(cache) { _memCache = cache; _saveCacheToStorage(); }
 
 function cacheImage(name, dataURL) {
   if (!name || !dataURL) return;
-  const cache = getImageCache();
-  const key = normalizeName(name);
+  var key = normalizeName(name);
   if (!key) return;
-  cache[key] = { name, dataURL, savedAt: new Date().toISOString() };
-  setImageCache(cache);
+  _memCache[key] = { name: name, dataURL: dataURL, savedAt: new Date().toISOString() };
+  _saveCacheToStorage();
   updateCacheCountBadge();
-  _fbPushImage(name, dataURL); // share image with team via Firebase
+  _fbPushImage(name, dataURL);
 }
 
 function getCachedImage(name) {
   if (!name) return null;
-  const cache = getImageCache();
-  const key = normalizeName(name);
-  if (cache[key]) return cache[key].dataURL;
-  for (const k of Object.keys(cache)) {
+  var key = normalizeName(name);
+  if (_memCache[key]) return _memCache[key].dataURL;
+  var keys = Object.keys(_memCache);
+  for (var i = 0; i < keys.length; i++) {
+    var k = keys[i];
     if ((key.includes(k) || k.includes(key)) && Math.abs(key.length - k.length) <= 8)
-      return cache[k].dataURL;
+      return _memCache[k].dataURL;
   }
   return null;
 }
 
 function updateCacheCountBadge() {
-  const count = Object.keys(getImageCache()).length;
-  const el = document.getElementById('cache-count');
+  var count = Object.keys(_memCache).length;
+  var el = document.getElementById('cache-count');
   if (el) el.textContent = count;
 }
 
 function renderCacheList() {
-  const cache = getImageCache();
-  const listEl = document.getElementById('cache-list');
+  var listEl = document.getElementById('cache-list');
   if (!listEl) return;
   updateCacheCountBadge();
-  const search = (document.getElementById('cache-search') ? document.getElementById('cache-search').value : '').toLowerCase();
-  const entries = Object.entries(cache)
-    .filter(function(e) { return !search || e[0].includes(search) || e[1].name.toLowerCase().includes(search); })
-    .sort(function(a, b) { return a[1].name.localeCompare(b[1].name); });
+  var search = (document.getElementById('cache-search') ? document.getElementById('cache-search').value : '').toLowerCase();
+  var entries = Object.entries(_memCache)
+    .filter(function(e) { return !search || e[0].includes(search) || (e[1].name||'').toLowerCase().includes(search); })
+    .sort(function(a, b) { return (a[1].name||'').localeCompare(b[1].name||''); });
   if (!entries.length) {
     listEl.innerHTML = '<div style="padding:12px;text-align:center;color:#bbb;font-size:12px">Chưa có ảnh nào được ghi nhớ</div>';
     return;
@@ -767,16 +777,16 @@ function renderCacheList() {
 }
 
 function deleteCacheEntry(key) {
-  const cache = getImageCache();
-  delete cache[key];
-  setImageCache(cache);
+  delete _memCache[key];
+  _saveCacheToStorage();
   renderCacheList();
   renderProductList();
 }
 
 function clearAllCache() {
-  if (!confirm('Xoá toàn bộ bộ nhớ ảnh?\nThao tác này không thể hoàn tác.')) return;
-  setImageCache({});
+  if (!confirm('Xoá toàn bộ bộ nhớ ảnh? Thao tác này không thể hoàn tác.')) return;
+  _memCache = {};
+  localStorage.removeItem(IMG_CACHE_KEY);
   renderCacheList();
   renderProductList();
 }
@@ -799,12 +809,14 @@ function importImageCache(input) {
       const d = JSON.parse(e.target.result);
       const incoming = d.cache || d;
       if (typeof incoming !== 'object') throw new Error('Định dạng không hợp lệ');
-      const existing = getImageCache();
       let added = 0;
       for (const k in incoming) {
-        if (incoming[k] && incoming[k].dataURL) { existing[k] = incoming[k]; added++; }
+        if (incoming[k] && incoming[k].dataURL) {
+          _memCache[k] = incoming[k];
+          added++;
+        }
       }
-      setImageCache(existing);
+      _saveCacheToStorage();
       renderCacheList();
       renderProductList();
       showToast('✅ Đã nhập ' + added + ' ảnh vào bộ nhớ!');
@@ -1584,36 +1596,10 @@ function confirmImport() {
   document.querySelectorAll('.tab-content').forEach(function(t) { t.style.display='none'; });
   document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
   document.getElementById('tab-products').style.display = 'block';
-  document.querySelectorAll('.tab-btn')[1].classList.add('active');
+  document.querySelectorAll('.tab-btn')[1].className += ' active';
+  renderProductList();
 }
 
-// ── FONT ──
-function applyFont() {
-  const sel = document.getElementById('font-select');
-  if (!sel) return;
-  const opt = sel.options[sel.selectedIndex];
-  const family = opt.getAttribute('data-family');
-  const val = sel.value;
-  const sizeName   = document.getElementById('font-size-name')   ? document.getElementById('font-size-name').value   : '11px';
-  const sizePrice  = document.getElementById('font-size-price')  ? document.getElementById('font-size-price').value  : '11px';
-  const sizeHeader = document.getElementById('font-size-header') ? document.getElementById('font-size-header').value : '26px';
-  const link = document.getElementById('gfont-link');
-  link.href = val === '__system' ? '' : 'https://fonts.googleapis.com/css2?family=' + val + '&display=swap';
-  setTimeout(function() {
-    document.querySelectorAll('.catalog-page').forEach(function(p) { p.style.fontFamily = family; });
-    document.querySelectorAll('.cell-name').forEach(function(el) { el.style.fontSize = sizeName; });
-    document.querySelectorAll('.cell-price-val').forEach(function(el) { el.style.fontSize = sizePrice; });
-    document.querySelectorAll('.hdr-sname').forEach(function(el) { el.style.fontSize = sizeHeader; });
-    const fp = document.getElementById('font-preview');
-    if (fp) fp.style.fontFamily = family;
-  }, 600);
-  autoSave();
-}
-
-// ── LOADING ──
-function showLoading(msg) { document.getElementById('loading-msg').textContent = msg||'Đang xử lý...'; document.getElementById('loading').classList.add('show'); }
-function updateLoadingMsg(msg) { document.getElementById('loading-msg').textContent = msg; }
-function hideLoading() { document.getElementById('loading').classList.remove('show'); }
 </script>
 </body>
 </html>
