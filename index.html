@@ -74,13 +74,13 @@ textarea { resize: vertical; min-height: 52px; }
 .catalog-title-tag { background: #1e5c46; color: white; font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 4px 10px; border-radius: 12px; display: inline-block; margin-bottom: 6px; }
 .catalog-period { font-size: 11px; color: #777; }
 .catalog-note { font-size: 10px; color: #999; margin-top: 4px; font-style: italic; }
-.products-grid { flex: 1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 11px; padding: 13px; align-content: start; }
+.products-grid { flex: 1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; padding: 16px; align-content: space-evenly; }
 .product-cell { border: 1px solid #c6dfd7; border-radius: 9px; overflow: hidden; background: white; box-shadow: 0 1px 5px rgba(30,92,70,.09); }
 .cell-img { width: 100%; height: 132px; overflow: hidden; position: relative; background: #eef5f1; background-size: cover; background-position: center; background-repeat: no-repeat; }
 .cell-watermark { position: absolute; bottom: 5px; right: 5px; background: rgba(30,92,70,.72); color: white; font-size: 8px; font-weight: 600; padding: 2px 6px; border-radius: 10px; }
-.cell-body { padding: 7px 9px 9px; }
-.cell-name { font-size: 11px; font-weight: 700; color: #1a3d2c; text-transform: uppercase; margin-bottom: 5px; line-height: 1.25; }
-.cell-row { display: flex; justify-content: space-between; font-size: 10px; padding: 2px 0; }
+.cell-body { padding: 8px 10px 10px; }
+.cell-name { font-size: 11px; font-weight: 700; color: #1a3d2c; text-transform: uppercase; margin-bottom: 6px; line-height: 1.3; }
+.cell-row { display: flex; justify-content: space-between; font-size: 10px; padding: 3px 0; }
 .cell-label { color: #999; }
 .cell-value { color: #333; font-weight: 500; text-align: right; }
 .cell-price-val { color: #1e5c46; font-weight: 700; font-size: 11px; }
@@ -115,10 +115,14 @@ textarea { resize: vertical; min-height: 52px; }
 
 /* ── PRODUCT SEARCH ── */
 #prod-search-wrap { position:relative; margin-bottom:8px; }
-#prod-search { width:100%; padding:8px 32px 8px 10px; border:1.5px solid #c6dfd7; border-radius:8px; font-size:13px; outline:none; background:#f9fffe; }
+#prod-search { width:100%; padding:8px 80px 8px 10px; border:1.5px solid #c6dfd7; border-radius:8px; font-size:13px; outline:none; background:#f9fffe; box-sizing:border-box; }
 #prod-search:focus { border-color:#1e5c46; box-shadow:0 0 0 2px rgba(30,92,70,.12); }
-#prod-search-clear { position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:none; font-size:16px; color:#aaa; cursor:pointer; padding:0 2px; line-height:1; }
+#prod-search-clear { position:absolute; right:44px; top:50%; transform:translateY(-50%); background:none; border:none; font-size:16px; color:#aaa; cursor:pointer; padding:0 2px; line-height:1; }
 #prod-search-clear:hover { color:#b92d50; }
+#btn-sort-az { position:absolute; right:4px; top:50%; transform:translateY(-50%); background:#eaf4ef; border:1.5px solid #b0d6c0; border-radius:6px; font-size:11px; font-weight:700; color:#1e5c46; cursor:pointer; padding:2px 6px; line-height:1.4; white-space:nowrap; }
+#btn-sort-az:hover { background:#d0ead8; }
+#btn-sort-az.active-az { background:#1e5c46; color:#fff; border-color:#1e5c46; }
+#btn-sort-az.active-za { background:#b92d50; color:#fff; border-color:#b92d50; }
 #prod-filtered-count { font-size:11px; font-weight:400; color:#888; margin-left:4px; }
 /* ── FIREBASE ── */
 #fb-section textarea { width:100%; box-sizing:border-box; padding:8px; font-size:11px; font-family:monospace; border:1px solid #d0e8dc; border-radius:6px; resize:vertical; color:#333; background:#f9fffe; }
@@ -319,6 +323,7 @@ input[type=file] { display: none; }
         <div id="prod-search-wrap">
           <input type="text" id="prod-search" placeholder="🔍 Tìm tên hoa, xuất xứ, ghi chú..." oninput="renderProductList()" autocomplete="off">
           <button id="prod-search-clear" onclick="document.getElementById('prod-search').value='';renderProductList()" title="Xoá">×</button>
+          <button id="btn-sort-az" onclick="toggleSortAZ()" title="Sắp xếp theo tên">A↕Z</button>
         </div>
         <div class="drag-hint">⠿ Kéo tay cầm bên trái để sắp xếp thứ tự</div>
         <div id="products-list"></div>
@@ -565,7 +570,10 @@ function _startFbListener() {
       // Firebase trống → nếu có data local thì tự đẩy lên
       if (products && products.length > 0) {
         showToast('☁️ Đang đồng bộ dữ liệu & ảnh lên Firebase...');
-        setTimeout(function() { _fbPushMeta(); _fbPushAllCachedImages(); }, 800);
+        setTimeout(function() {
+          _fbPushMeta();
+          _fbPushAllCachedImages();
+        }, 800);
       }
       return;
     }
@@ -850,6 +858,22 @@ function showLogoPreview(src) {
 }
 
 // ── PRODUCT LIST ──
+var __sortOrder = null; // null | 'az' | 'za'
+function toggleSortAZ() {
+  var btn = document.getElementById('btn-sort-az');
+  if (__sortOrder === null) {
+    __sortOrder = 'az'; btn.textContent = 'A→Z'; btn.className = 'active-az';
+    products.sort(function(a,b){ return (a.name||'').localeCompare(b.name||'','vi'); });
+  } else if (__sortOrder === 'az') {
+    __sortOrder = 'za'; btn.textContent = 'Z→A'; btn.className = 'active-za';
+    products.sort(function(a,b){ return (b.name||'').localeCompare(a.name||'','vi'); });
+  } else {
+    __sortOrder = null; btn.textContent = 'A↕Z'; btn.className = '';
+  }
+  renderProductList();
+  renderCatalog();
+}
+
 function renderProductList() {
   const container = document.getElementById('products-list');
   document.getElementById('prod-count').textContent = products.length;
@@ -857,9 +881,18 @@ function renderProductList() {
   const q = ((document.getElementById('prod-search')||{}).value||'').trim().toLowerCase();
   const filteredLabel = document.getElementById('prod-filtered-count');
   const clearBtn = document.getElementById('prod-search-clear');
+  // Build display list with original indices for editing/deleting
+  var displayList = products.map(function(p, i) { return { p: p, i: i }; });
+  if (__sortOrder === 'az') {
+    displayList.sort(function(a, b) { return (a.p.name||'').localeCompare(b.p.name||'', 'vi'); });
+  } else if (__sortOrder === 'za') {
+    displayList.sort(function(a, b) { return (b.p.name||'').localeCompare(a.p.name||'', 'vi'); });
+  }
+  // Note: displayList is for left panel only; catalog uses getSortedProducts()
   let visibleCount = 0;
   container.innerHTML = '';
-  products.forEach(function(p, i) {
+  displayList.forEach(function(item) {
+    var p = item.p, i = item.i;
     // Check search match
     if (q) {
       const hay = [(p.name||''), (p.origin||''), (p.notes||''), (p.price||''), (p.pack||'')].join(' ').toLowerCase();
@@ -1147,7 +1180,7 @@ function confirmCrop() {
   const out = document.createElement('canvas');
   out.width = Math.round(sw); out.height = Math.round(sh);
   out.getContext('2d').drawImage(_cropImg, sx, sy, sw, sh, 0, 0, out.width, out.height);
-  compressImage(out.toDataURL('image/jpeg', 0.92), 500, 0.78, function(dataURL) {
+  compressImage(out.toDataURL('image/jpeg', 0.85), 220, 0.65, function(dataURL) {
     products[_cropTarget].img = dataURL;
     products[_cropTarget].imgFromCache = false;
     const name = products[_cropTarget].name;
@@ -1239,6 +1272,24 @@ function buildHeader(pageIdx, totalPages) {
   return hdr;
 }
 
+function getCountryFlag(origin) {
+  if (!origin) return '';
+  var o = origin.toLowerCase();
+  var code = '';
+  if (o.includes('việt') || o.includes('viet') || o.includes('đà lạt') || o.includes('da lat') || o.includes('hcm') || o.includes('hà nội')) code = 'vn';
+  else if (o.includes('trung quốc') || o.includes('trung quoc') || o.includes('china') || o.includes('tq')) code = 'cn';
+  else if (o.includes('hà lan') || o.includes('ha lan') || o.includes('holland') || o.includes('netherlands')) code = 'nl';
+  else if (o.includes('nhật') || o.includes('nhat') || o.includes('japan')) code = 'jp';
+  else if (o.includes('thái') || o.includes('thai') || o.includes('thailand')) code = 'th';
+  else if (o.includes('hàn') || o.includes('han') || o.includes('korea')) code = 'kr';
+  else if (o.includes('úc') || o.includes('australia')) code = 'au';
+  else if (o.includes('mỹ') || o.includes('usa') || o.includes('america')) code = 'us';
+  else if (o.includes('kenya')) code = 'ke';
+  else if (o.includes('colombia')) code = 'co';
+  else if (o.includes('ecuador')) code = 'ec';
+  if (!code) return '';
+  return '<img src="https://flagcdn.com/16x12/' + code + '.png" style="width:14px;height:10px;object-fit:cover;border-radius:1px;vertical-align:middle;margin-left:3px;display:inline-block">';
+}
 function buildProductCell(p, globalIdx) {
   const cell = document.createElement('div');
   cell.className = 'product-cell';
@@ -1490,8 +1541,29 @@ function confirmImport() {
   imported.forEach(function(p) { seen.set(normalizeName(p.name), p); });
   const deduped = Array.from(seen.values());
   const dupCount = imported.length - deduped.length;
-  const action = products.length ? confirm('Nhập ' + deduped.length + ' sản phẩm' + (dupCount ? ' (đã xoá ' + dupCount + ' tên trùng)' : '') + '.\n\nOK = Thay toàn bộ\nCancel = Thêm vào cuối') : true;
-  products = action ? deduped : products.concat(deduped);
+  if (!products.length) {
+    // No existing products → just use imported
+    products = deduped;
+  } else {
+    // Build map of imported names for lookup
+    const importedMap = new Map();
+    deduped.forEach(function(p) { importedMap.set(normalizeName(p.name), p); });
+    // Count overlaps
+    const overlapCount = products.filter(function(p) { return importedMap.has(normalizeName(p.name)); }).length;
+    const newCount = deduped.length - overlapCount;
+    var msg = 'File Excel có ' + deduped.length + ' sản phẩm' + (dupCount ? ' (đã bỏ ' + dupCount + ' tên trùng trong file)' : '') + '.\n';
+    if (overlapCount) msg += '→ ' + overlapCount + ' sản phẩm trùng tên với danh sách hiện tại.\n';
+    if (newCount) msg += '→ ' + newCount + ' sản phẩm mới.\n';
+    msg += '\nOK = Cập nhật thông minh (thay sản phẩm trùng + giữ cũ + thêm mới)\nCancel = Thêm tất cả vào cuối';
+    const action = confirm(msg);
+    if (action) {
+      // Smart merge: keep existing not in import, replace/add from import
+      const kept = products.filter(function(p) { return !importedMap.has(normalizeName(p.name)); });
+      products = kept.concat(deduped);
+    } else {
+      products = products.concat(deduped);
+    }
+  }
 
   // Auto-fill from image cache
   let autoFilled = 0;
